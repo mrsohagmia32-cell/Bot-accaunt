@@ -13,16 +13,13 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9V9Fsqhxxqjd3
 // ২. আপনার Pexels API Key
 const PEXELS_API_KEY = "DiqA3nNE1bXk1CaViv1inoLX9HW18I8g6GtECOhrp6y8kdloYRvRZRCd";
 
-// তৈরি হওয়া সকল বট অ্যাকাউন্টের লিস্ট (মেমোরিতে সংরক্ষিত থাকবে)
+// মেমোরিতে সংরক্ষিত বট অ্যাকাউন্টের লিস্ট
 let registeredBots = [];
 
-const botFirstNames = ["আরিফ", "রাহাত", "তানজিম", "নাবিল", "ফারহান", "সোহাগ", "জুবায়ের", "রিদওয়ান", "সাব্বির", "ইশতিয়াক", "নুসরাত", "মেহজাবিন", "ফারিহা", "তানিশা", "সাদিয়া", "সৌরভ", "নাহিয়ান"];
-const botLastNames = ["আহমেদ", "ইসলাম", "হাসান", "চৌধুরী", "হাওলাদার", "মজুমদার", "তালুকদার", "সরকার", "রহমান", "خان"];
-
-// Pexels API থেকে ছবি এবং ছবির নিজস্ব বিবরণ (Alt/Description) আনার ফাংশন
+// Pexels API থেকে ছবি, ছবির নিজস্ব ক্যাপশন এবং আসল ফটোগ্রাফারের নাম আনার ফাংশন
 async function fetchPexelsImageAndData() {
     try {
-        let queryKeywords = ['nature', 'landscape', 'mountains', 'city', 'flowers', 'ocean', 'forest', 'sunset', 'travel'];
+        let queryKeywords = ['nature', 'landscape', 'mountains', 'city', 'flowers', 'ocean', 'forest', 'sunset', 'travel', 'portraits'];
         let randomKeyword = queryKeywords[Math.floor(Math.random() * queryKeywords.length)];
         
         let pexelsRes = await fetch(`https://api.pexels.com/v1/search?query=${randomKeyword}&per_page=30`, {
@@ -33,42 +30,49 @@ async function fetchPexelsImageAndData() {
         if (pexelsData && pexelsData.photos && pexelsData.photos.length > 0) {
             let randomPhoto = pexelsData.photos[Math.floor(Math.random() * pexelsData.photos.length)];
             
-            // পিক্সেলস থেকে ছবির আসল ডেসক্রিপশন বা অল্টারনেটিভ টেক্সট নেওয়া (যদি না থাকে তবে ডিফল্ট ট্যাগ ব্যবহার হবে)
-            let photoAlt = randomPhoto.alt || "Beautiful moments captured through lens. 🌿✨";
+            // পিক্সেলসের আসল ফটোগ্রাফারের নাম (যেমন: Alex Johnson, John Doe ইত্যাদি)
+            let photographerName = randomPhoto.photographer || "B_book Creator";
             
-            // পিক্সেলস থেকে ইমেজের Direct Static CDN URL নেওয়া
+            let photoAlt = randomPhoto.alt || "Beautiful moments captured through lens. 🌿✨";
             let imgUrl = randomPhoto.src.large2x || randomPhoto.src.large || randomPhoto.src.medium;
             
-            // ছবি ডাউনলোড করে Base64 এ কনভার্ট করা যাতে ১০০% লোড হয়
             let imgBuffer = await fetch(imgUrl).then(res => res.buffer());
             let base64Image = "data:image/jpeg;base64," + imgBuffer.toString('base64');
             
-            return { caption: photoAlt, base64Image, imgUrl };
+            return { authorName: photographerName, caption: photoAlt, base64Image, imgUrl };
         }
     } catch (e) {
         console.error("Pexels Image & Data Fetch Error:", e.message);
     }
     
     return { 
+        authorName: "Tanvir Ahmed", 
         caption: "A wonderful capture of nature's beauty! 🌸", 
         base64Image: "", 
         imgUrl: `https://picsum.photos/800/600?random=${Date.now()}` 
     };
 }
 
-// নতুন বট অ্যাকাউন্ট খোলার ফাংশন
+async function PexelsImageAndDataFetch() {
+    return await fetchPexelsImageAndData();
+}
+
+// নতুন বট অ্যাকাউন্ট খোলা এবং পিক্সেলসের আসল ফটোগ্রাফারের নামে অ্যাকাউন্ট তৈরি করার ফাংশন
 async function createNewBotAccount() {
     try {
-        let fName = botFirstNames[Math.floor(Math.random() * botFirstNames.length)];
-        let lName = botLastNames[Math.floor(Math.random() * botLastNames.length)];
-        let botName = `${fName} ${lName}`;
-        let botEmail = `bot_${Math.floor(Math.random() * 900000 + 100000)}@bbook.com`;
+        // প্রথমে পিক্সেলস থেকে ছবি ও ওই ছবির আসল ফটোগ্রাফারের নাম ফেচ করা হবে
+        let pexelsData = await PexelsImageAndDataFetch();
+        
+        let botName = pexelsData.authorName;
+        let cleanEmailName = botName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let botEmail = `bot_${cleanEmailName}_${Math.floor(Math.random() * 9000 + 1000)}@bbook.com`;
         let botPass = "bot123456";
         
         let bgColors = ["1877f2", "2ecc71", "e74c3c", "9b59b6", "f39c12", "1abc9c", "d35400"];
         let randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
         let botProfilePic = `https://ui-avatars.com/api/?name=${encodeURIComponent(botName)}&background=${randomBg}&color=fff&size=256&bold=true`;
 
+        // ডাটাবেজে নতুন বট ইউজার অ্যাকাউন্ট রেজিস্টার করা (ফটোগ্রাফারের নামে)
         let regPayload = {
             action: "register",
             name: botName,
@@ -83,28 +87,19 @@ async function createNewBotAccount() {
             body: JSON.stringify(regPayload)
         });
 
-        let botData = { name: botName, email: botEmail, profilePic: botProfilePic };
-        registeredBots.push(botData);
-        console.log(`🤖 New Bot Created & Saved: ${botName} (Total Bots: ${registeredBots.length})`);
+        // ডুপ্লিকেট অ্যাকাউন্ট সেভ হওয়া রোধ করতে চেক করা
+        if (!registeredBots.some(b => b.name === botName)) {
+            let botData = { name: botName, email: botEmail, profilePic: botProfilePic };
+            registeredBots.push(botData);
+            console.log(`🤖 Pexels Photographer Bot Created: ${botName} (Total Active Bots: ${registeredBots.length})`);
+        }
 
-        // অ্যাকাউন্ট খোলার সাথে সাথে প্রথম পোস্টটি দেওয়া
-        await publishBotPost(botData);
-
-    } catch (err) {
-        console.error("Create Bot Error:", err.message);
-    }
-}
-
-// পিক্সেলস থেকে ছবি ও তার নিজস্ব ক্যাপশন নিয়ে পোস্ট করার ফাংশন
-async function publishBotPost(bot) {
-    try {
-        let pexelsData = await PexelsImageAndDataFetch(); // পিক্সেলসের আসল ডেটা ও ছবি আনবে
-
+        // অ্যাকাউন্ট খোলার সাথে সাথেই সেই ফটোগ্রাফারের নাম দিয়ে প্রথম পোস্টটি করে দেওয়া
         let postPayload = {
             action: "addPost",
-            username: bot.name,
-            profilePic: bot.profilePic,
-            postText: pexelsData.caption, // এখানে পিক্সেলসের নিজস্ব ছবি বিবরণ বা ক্যাপশন বসবে
+            username: botName,
+            profilePic: botProfilePic,
+            postText: pexelsData.caption,
             imageBase64: pexelsData.base64Image,
             imageURL: pexelsData.imgUrl
         };
@@ -115,42 +110,65 @@ async function publishBotPost(bot) {
             body: JSON.stringify(postPayload)
         });
 
-        console.log(`📸 Pexels Original Post Published by Bot: ${bot.name} -> "${pexelsData.caption}"`);
+        console.log(`📸 Initial Post Published by Photographer Bot: ${botName}`);
+
+    } catch (err) {
+        console.error("Create Bot Error:", err.message);
+    }
+}
+
+// পিক্সেলস থেকে ছবি ও ক্যাপশন নিয়ে নির্দিষ্ট বট অ্যাকাউন্ট থেকে পোস্ট করার ফাংশন
+async function publishBotPost(bot) {
+    try {
+        let pexelsData = await PexelsImageAndDataFetch();
+
+        let postPayload = {
+            action: "addPost",
+            username: bot.name,
+            profilePic: bot.profilePic,
+            postText: pexelsData.caption,
+            imageBase64: pexelsData.base64Image,
+            imageURL: pexelsData.imgUrl
+        };
+
+        await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postPayload)
+        });
+
+        console.log(`📸 Regular Post Published by Bot: ${bot.name}`);
     } catch (err) {
         console.error("Publish Post Error:", err.message);
     }
 }
 
-// সুবিধার জন্য ফাংশন নাম মেলানো
-async function PexelsImageAndDataFetch() {
-    return await fetchPexelsImageAndData();
-}
-
-// প্রতি ১ ঘণ্টা পর পর সব বট অ্যাকাউন্ট থেকে পোস্ট করার লজিক
-async function postFromAllBotsHourly() {
-    if (registeredBots.length === 0) {
-        await createNewBotAccount();
-        return;
-    }
-    console.log(`⏰ Hourly Auto Post Triggered for ${registeredBots.length} Bots...`);
-    for (let bot of registeredBots) {
+// প্রতি ১০ মিনিট পর পর সেভ থাকা সকল বট অ্যাকাউন্ট থেকে পর্যায়ক্রমে পোস্ট করার লজিক
+async function postFromAllBotsRegularly() {
+    if (registeredBots.length === 0) return;
+    
+    console.log(`⏰ Regular Auto Post Cycle Triggered for ${registeredBots.length} Bots...`);
+    
+    for (let i = 0; i < registeredBots.length; i++) {
+        let bot = registeredBots[i];
         await publishBotPost(bot);
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        let randomGap = Math.floor(Math.random() * 5000) + 5000;
+        await new Promise(resolve => setTimeout(resolve, randomGap));
     }
 }
 
 // ⏱️ টাইমার কনফিগারেশন:
-// ১. প্রতি ৫ মিনিটে ১টি করে নতুন বট অ্যাকাউন্ট তৈরি হবে
-setInterval(createNewBotAccount, 300000);
+// ১. প্রতি ২ মিনিটে নতুন বট একাউন্ট খুলবে (পিক্সেলস ফটোগ্রাফারের নামে) এবং সাথে সাথে পোস্ট করবে
+setInterval(createNewBotAccount, 120000);
 
-// ২. প্রতি ১ ঘণ্টায় সেভ হওয়া সকল বট অ্যাকাউন্ট থেকে পিক্সেলস ছবির আসল ক্যাপশন সহ পোস্ট তৈরি হবে
-setInterval(postFromAllBotsHourly, 3600000);
+// ২. প্রতি ১০ মিনিটে সমস্ত সেভ থাকা বট অ্যাকাউন্ট থেকে পর্যায়ক্রমে পোস্ট হবে
+setInterval(postFromAllBotsRegularly, 600000);
 
-// সার্ভার স্টার্ট হওয়ার সাথে সাথে প্রথম বট তৈরি হয়ে পোস্ট রান হবে
+// সার্ভার স্টার্ট হওয়ার সাথে সাথে প্রথম বট তৈরি হয়ে রান হবে
 createNewBotAccount();
 
 app.get('/', (req, res) => {
-    res.send(`🤖 B_book Bot Server is Active! Total Saved Bots: ${registeredBots.length}`);
+    res.send(`🤖 B_book Pexels-Name Bot Server is Active! Total Saved Bots: ${registeredBots.length}`);
 });
 
 const PORT = process.env.PORT || 3000;
